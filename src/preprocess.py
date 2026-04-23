@@ -1,185 +1,146 @@
+import os
 import mne
 import numpy as np
 from moabb.datasets import PhysionetMI, BNCI2014_001
 
+mne.set_log_level("WARNING")
+
 BCI2A_CHANNELS = [
-    'Fz', 'FC3', 'FC1', 'FCz', 'FC2', 'FC4',
-    'C5', 'C3', 'C1', 'Cz', 'C2', 'C4', 'C6',
-    'CP3', 'CP1', 'CPz', 'CP2', 'CP4',
-    'P1', 'Pz', 'P2', 'POz'
+    "Fz", "FC3", "FC1", "FCz", "FC2", "FC4",
+    "C5", "C3", "C1", "Cz", "C2", "C4", "C6",
+    "CP3", "CP1", "CPz", "CP2", "CP4",
+    "P1", "Pz", "P2", "POz"
 ]
 
-SEED = 42
-np.random.seed(SEED)
+PHYSIONET_LEFT_RIGHT_RUNS = {"0", "1", "2"}
 
 
-def load_physionet_raw(subject=1):
-    dataset = PhysionetMI()
-    sessions = dataset.get_data(subjects=[subject])
-    raw = list(list(sessions[subject].values())[0].values())[0]
-    return raw
-
-
-def load_bci2a_raw(subject=1):
-    dataset = BNCI2014_001()
-    sessions = dataset.get_data(subjects=[subject])
-    raw = list(list(sessions[subject].values())[0].values())[0]
-    return raw
-
-
-def select_shared_channels(raw):
+def preprocess_raw(raw):
     raw = raw.copy()
-    raw.pick(BCI2A_CHANNELS)
+    raw.pick_channels(BCI2A_CHANNELS)
+    raw.resample(250, npad="auto")
+    raw.filter(4.0, 40.0, verbose=False)
     return raw
 
 
-def resample_to_250(raw):
-    raw = raw.copy()
-    raw.resample(250, npad='auto')
-    return raw
+def extract_epochs(raw):
+    events, event_id = mne.events_from_annotations(raw, verbose=False)
 
+    keep = {k: v for k, v in event_id.items() if k in {"left_hand", "right_hand"}}
 
-def bandpass_filter(raw):
-    raw = raw.copy()
-    raw.filter(4.0, 40.0)
-    return raw
-
-
-def create_epochs(raw, dataset_type="physionet"):
-    """
-    Cut continuous EEG into labeled trials (epochs).
-
-    Output:
-        MNE Epochs object
-    """
-    events, event_id = mne.events_from_annotations(raw)
-
-    print(f"\nEvent mapping from annotations ({dataset_type}):")
-    print(event_id)
-
-    if dataset_type == "physionet":
-        # Keep only left/right, remove rest
-        event_map = {
-            "left_hand": event_id["left_hand"],
-            "right_hand": event_id["right_hand"]
-        }
-
-    elif dataset_type == "bci2a":
-        # Keep only left/right, remove feet/tongue
-        event_map = {
-            "left_hand": event_id["left_hand"],
-            "right_hand": event_id["right_hand"]
-        }
-
-    else:
-        raise ValueError(f"Unknown dataset_type: {dataset_type}")
+    if len(keep) < 2:
+        return None, None
 
     epochs = mne.Epochs(
         raw,
         events,
-        event_id=event_map,
+        event_id=keep,
         tmin=0.5,
         tmax=2.5,
         baseline=None,
-        preload=True
+        preload=True,
+        verbose=False,
     )
 
-    return epochs
+    if len(epochs) == 0:
+        return None, None
 
-
-def epochs_to_numpy(epochs):
-    """
-    Convert epochs into NumPy arrays.
-
-    Returns:
-        X: shape (n_trials, n_channels, n_timepoints)
-        y: shape (n_trials,) with labels mapped to 0/1
-           left_hand -> 0
-           right_hand -> 1
-    """
     X = epochs.get_data()
     y_raw = epochs.events[:, 2]
-
-    # Sort labels so mapping is stable:
-    # smaller label -> 0, larger label -> 1
-    unique_labels = np.sort(np.unique(y_raw))
-    label_map = {
-        unique_labels[0]: 0,
-        unique_labels[1]: 1
-    }
-    y = np.array([label_map[label] for label in y_raw])
-
-    print("\nEpoch array shape:", X.shape)
-    print("Raw epoch labels:", unique_labels)
-    print("Mapped labels/counts:", np.unique(y, return_counts=True))
+    y = np.where(y_raw == keep["left_hand"], 0, 1)
 
     return X, y
 
 
+def process_physionet(subjects=None):
+    dataset = PhysionetMI()
+    subject_list = dataset.subject_list if subjects is None else subjects
+
+    all_X = []
+    all_y = []
+
+    for subject in subject_list:
+        try:
+            sessions = dataset.get_data(subjects=[subject])
+
+            for _, session in sessions[subject].items():
+                for run_name, raw in session.items():
+                    if run_name not in PHYSIONET_LEFT_RIGHT_RUNS:
+                        continue
+
+                    raw = preprocess_raw(raw)
+                    X, y = extract_epochs(raw)
+
+                    if X is None:
+                        continue
+
+                    all_X.append(X)
+                    all_y.append(y)
+
+        except Exception as e:
+            print(f"PhysioNet subject {subject} failed: {e}")
+
+    if not all_X:
+        raise RuntimeError("No PhysioNet trials were extracted.")
+
+    X_full = np.concatenate(all_X, axis=0)
+    y_full = np.concatenate(all_y, axis=0)
+
+    print("PhysioNet full shape:", X_full.shape)
+    print("PhysioNet labels:", np.unique(y_full, return_counts=True))
+
+    return X_full, y_full
+
+
+def process_bci2a(subjects=None):
+    dataset = BNCI2014_001()
+    subject_list = dataset.subject_list if subjects is None else subjects
+
+    all_X = []
+    all_y = []
+
+    for subject in subject_list:
+        try:
+            sessions = dataset.get_data(subjects=[subject])
+
+            for _, session in sessions[subject].items():
+                for _, raw in session.items():
+                    raw = preprocess_raw(raw)
+                    X, y = extract_epochs(raw)
+
+                    if X is None:
+                        continue
+
+                    all_X.append(X)
+                    all_y.append(y)
+
+        except Exception as e:
+            print(f"BCI2a subject {subject} failed: {e}")
+
+    if not all_X:
+        raise RuntimeError("No BCI2a trials were extracted.")
+
+    X_full = np.concatenate(all_X, axis=0)
+    y_full = np.concatenate(all_y, axis=0)
+
+    print("BCI2a full shape:", X_full.shape)
+    print("BCI2a labels:", np.unique(y_full, return_counts=True))
+
+    return X_full, y_full
+
+
 if __name__ == "__main__":
-    # -------------------------
-    # 1. Load raw data
-    # -------------------------
-    phys_raw = load_physionet_raw(1)
-    bci_raw = load_bci2a_raw(1)
+    os.makedirs("results", exist_ok=True)
 
-    # -------------------------
-    # 2. Shared channel set
-    # -------------------------
-    phys_22 = select_shared_channels(phys_raw)
-    bci_22 = select_shared_channels(bci_raw)
+    X_phys, y_phys = process_physionet()
+    X_bci, y_bci = process_bci2a()
 
-    # -------------------------
-    # 3. Resample to 250 Hz
-    # -------------------------
-    phys_250 = resample_to_250(phys_22)
-    bci_250 = resample_to_250(bci_22)
-
-    print("Before filtering:")
-    print("PhysioNet shape:", phys_250.get_data().shape, "sfreq:", phys_250.info["sfreq"])
-    print("BCI2a shape:", bci_250.get_data().shape, "sfreq:", bci_250.info["sfreq"])
-
-    # -------------------------
-    # 4. Bandpass filter 4–40 Hz
-    # -------------------------
-    phys_filt = bandpass_filter(phys_250)
-    bci_filt = bandpass_filter(bci_250)
-
-    print("\nAfter filtering:")
-    print("PhysioNet shape:", phys_filt.get_data().shape, "sfreq:", phys_filt.info["sfreq"])
-    print("BCI2a shape:", bci_filt.get_data().shape, "sfreq:", bci_filt.info["sfreq"])
-
-    # -------------------------
-    # 5. Extract epochs
-    # -------------------------
-    phys_epochs = create_epochs(phys_filt, dataset_type="physionet")
-    bci_epochs = create_epochs(bci_filt, dataset_type="bci2a")
-
-    print("\nPhysioNet epochs:")
-    print(phys_epochs)
-
-    print("\nBCI2a epochs:")
-    print(bci_epochs)
-
-    # -------------------------
-    # 6. Convert to NumPy
-    # -------------------------
-    X_phys, y_phys = epochs_to_numpy(phys_epochs)
-    X_bci, y_bci = epochs_to_numpy(bci_epochs)
-
-    print("\nFinal outputs:")
-    print("PhysioNet X:", X_phys.shape, "y:", y_phys.shape)
-    print("BCI2a X:", X_bci.shape, "y:", y_bci.shape)
-
-    # -------------------------
-    # 7. Save preprocessed data
-    # -------------------------
     np.save("results/physionet_X.npy", X_phys)
     np.save("results/physionet_y.npy", y_phys)
     np.save("results/bci2a_X.npy", X_bci)
     np.save("results/bci2a_y.npy", y_bci)
 
-    print("\nSaved files:")
+    print("\nSaved:")
     print("results/physionet_X.npy")
     print("results/physionet_y.npy")
     print("results/bci2a_X.npy")

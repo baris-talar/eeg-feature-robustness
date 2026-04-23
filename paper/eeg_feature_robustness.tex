@@ -1,0 +1,584 @@
+\documentclass[10pt,twocolumn]{article}
+
+% ── Core packages ─────────────────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{tgtermes}
+\usepackage[margin=0.75in, top=1.0in, bottom=1.0in, columnsep=0.25in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\graphicspath{{./}{../results/}}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{enumitem}
+\usepackage{flushend}   % balance last page columns
+\usepackage{abstract}
+\usepackage{titlesec}
+\usepackage{hyperref}
+\usepackage{multirow}
+\usepackage{fancyhdr}
+\usepackage{url}
+
+% ── Page geometry ─────────────────────────────────────────────────────────────
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0pt}
+
+% ── Section formatting ────────────────────────────────────────────────────────
+\titleformat{\section}
+  {\normalfont\large\bfseries\scshape}{\Roman{section}.}{0.5em}{}
+\titleformat{\subsection}
+  {\normalfont\normalsize\bfseries}{\Alph{subsection}.}{0.5em}{}
+\titlespacing*{\section}{0pt}{9pt plus 2pt minus 1pt}{4pt}
+\titlespacing*{\subsection}{0pt}{6pt plus 1pt}{2pt}
+
+% ── Caption style ─────────────────────────────────────────────────────────────
+\captionsetup{
+  font=small,
+  labelfont=bf,
+  labelsep=period,
+  skip=5pt,
+  justification=justified,
+  singlelinecheck=false
+}
+
+% ── Hyperref ──────────────────────────────────────────────────────────────────
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=black,
+}
+
+% ── Header/footer ─────────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancyhead[L]{\small\textit{EEG Feature Robustness Under Cross-Dataset Distribution Shift}}
+\fancyhead[R]{\small\thepage}
+\fancypagestyle{firstpage}{
+  \fancyhf{}
+  \renewcommand{\headrulewidth}{0pt}
+  \fancyfoot[C]{\small\thepage}
+}
+
+% ══════════════════════════════════════════════════════════════════════════════
+\begin{document}
+\thispagestyle{firstpage}
+
+% ── Title block (single-column) ───────────────────────────────────────────────
+\twocolumn[{%
+\begin{center}
+  \vspace*{4pt}
+  {\LARGE\bfseries Robustness of EEG Feature Representations Under\\[4pt]
+   Cross-Dataset Distribution Shift Using Classical Models}\\[14pt]
+  {\large Barış Talar}\\[4pt]
+  {\normalsize Independent Research, 2026}\\[2pt]
+  {\small\texttt{baristalar21@gmail.com}}\\[16pt]
+\end{center}
+%
+\begin{abstract}
+\noindent
+EEG-based brain-computer interfaces (BCIs) frequently report high within-dataset
+classification accuracy, yet performance collapses when models are applied to new
+datasets recorded under different conditions. This paper investigates whether
+frequency-domain feature representations are more robust than time-domain
+statistical features under cross-dataset distribution shift. Using two publicly
+available motor imagery datasets---PhysioNet EEG Motor Imagery (109 subjects)
+and BCI Competition IV Dataset~2a (9 subjects)---we evaluate 9 feature-model
+combinations under strict zero-shot transfer in both directions. FFT magnitude
+features showed the smallest mean normalised generalisation gap (0.065), followed
+by band power (0.070) and time-domain features (0.071), though differences were
+modest. Critically, within-dataset accuracy was near chance for PhysioNet (53--56\%),
+revealing that commonly reported high accuracies in the literature are unlikely to
+reflect genuine generalisation. A $9\times$ amplitude difference between recording
+systems was empirically confirmed as the primary barrier to cross-dataset transfer;
+log-transformed frequency features partially mitigate this shift.
+\end{abstract}
+\vspace{8pt}
+\hrule height 0.6pt
+\vspace{10pt}
+}]
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Introduction}
+
+Brain-computer interfaces (BCIs) based on electroencephalography (EEG) have shown
+considerable promise for enabling motor-impaired individuals to communicate through
+imagined movement. Motor imagery---the mental rehearsal of a motor action---produces
+characteristic suppression of the mu (8--12~Hz) and beta (13--30~Hz) rhythms over
+the contralateral motor cortex, providing a reliable neural signal for binary
+classification.
+
+Despite decades of research, EEG-based BCIs face a persistent barrier: models
+trained on one dataset rarely transfer to another. Studies routinely report
+within-dataset accuracies of 80--90\%, yet these numbers are produced by training
+and testing on the same subjects under the same recording conditions. When the same
+model is applied to a different dataset---different subjects, amplifiers, electrode
+configurations---performance collapses to near chance. This gap between reported
+and real-world accuracy is a fundamental challenge for clinical BCI deployment.
+
+The causes are multiple: electrode impedance and amplifier gain differences
+introduce amplitude-scale shifts; different subject pools introduce inter-subject
+variability; different experimental protocols introduce trial-timing differences.
+What remains underexplored is \emph{which feature representation} degrades least
+under these conditions, and why.
+
+This paper addresses that question directly. We compare three classical feature
+representations---time-domain statistics, band power, and FFT magnitude---under
+strict zero-shot cross-dataset transfer. Using classical machine learning
+deliberately isolates the feature representation as the variable of interest.
+Deep learning conflates feature extraction with classification, making it
+impossible to attribute generalisation differences to the representation itself.
+
+Our central hypothesis is that frequency-domain features will be more robust under
+distribution shift than time-domain features, because EEG's oscillatory band
+structure is more stable across recording conditions than its absolute amplitude.
+
+\textbf{Contributions:}
+\begin{itemize}[leftmargin=*, itemsep=0pt, topsep=3pt]
+  \item A controlled empirical comparison of three classical feature representations
+    under strict cross-dataset transfer in both directions.
+  \item Empirical quantification of the amplitude-scale distribution shift between
+    two widely used public datasets.
+  \item An honest within-dataset accuracy baseline for unscreened subject
+    populations, providing a realistic reference for evaluating literature claims.
+\end{itemize}
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Related Work}
+
+\subsection{Motor Imagery Classification}
+
+The classification of motor imagery EEG has been studied since Pfurtscheller and
+Neuper~\cite{pfurtscheller2001} established the neurophysiological basis of
+event-related desynchronisation in the mu and beta bands. Standard approaches
+extract band-power features using Welch's PSD estimation and classify with linear
+discriminant analysis or SVMs. Common spatial patterns (CSP) and its variants
+have been widely applied. Within-dataset accuracies of 70--90\% are regularly
+reported, particularly on competition benchmarks such as BCI Competition IV
+Dataset~2a.
+
+\subsection{Cross-Dataset Generalisation}
+
+Cross-dataset generalisation is significantly less studied than within-dataset
+evaluation. Jayaram et al.~\cite{jayaram2016} demonstrated through the MOABB
+benchmark that many published BCI algorithms show dramatic performance drops
+under cross-session and cross-subject evaluation, explicitly framing this as a
+\emph{cross-dataset variability problem} that weakens generalisation.
+
+Crucially, the part of the literature that most directly addresses ``robustness
+across datasets'' has mostly targeted deep-learning and domain adaptation approaches:
+recent reviews of MI-EEG classification are dominated by deep architectures
+\cite{schirrmeister2017}, while contemporary cross-dataset MI work centres on
+transfer learning, pre-training, covariate-shift alignment, and graph-based
+models~\cite{lotte2018}. Classical feature-engineering work exists but is almost
+exclusively evaluated \emph{within} a single dataset.
+
+\subsection{Gap This Study Fills}
+
+The defensible novelty claim is not that nobody studied classical EEG features,
+but rather that no prior work isolates the feature representation as the \emph{sole}
+variable under a strict train-on-$A$, test-on-$B$ design with identical
+preprocessing and both transfer directions. Our study provides that controlled
+baseline---the reference point against which domain adaptation methods should
+be compared.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Methods}
+
+\subsection{Datasets}
+
+\textbf{PhysioNet EEG Motor Imagery}~\cite{schalk2004,goldberger2000} comprises
+recordings from 109 subjects at 160~Hz on 64 channels. Only the left/right motor
+imagery runs (runs~0, 1, and 2 in MOABB notation) were retained. After
+preprocessing, 4,918 trials were kept (2,480 left, 2,438 right).
+
+\textbf{BCI Competition IV Dataset~2a}~\cite{brunner2008}, accessed as
+\texttt{BNCI2014\_001} via MOABB~\cite{jayaram2018}, comprises recordings from
+9 subjects at 250~Hz on 22 EEG channels. Only left-hand (event~769) and
+right-hand (event~770) trials were retained, yielding 2,592 trials (1,296 each).
+
+\subsection{Preprocessing}
+
+An identical pipeline was applied to both datasets:
+\begin{enumerate}[leftmargin=*, itemsep=1pt, topsep=3pt, label=\arabic*.]
+  \item \textbf{Channel selection}: both recordings restricted to the 22 BCI2a
+    channels (a strict subset of PhysioNet's 64). No interpolation required.
+  \item \textbf{Resampling}: PhysioNet upsampled from 160~Hz to 250~Hz using MNE
+    polyphase resampling. Upsampling was preferred to preserve all frequency content
+    below the original Nyquist (80~Hz).
+  \item \textbf{Bandpass filtering}: 4--40~Hz FIR filter; captures the
+    motor-relevant mu and beta rhythms while removing DC drift and EMG artefacts.
+  \item \textbf{Epoch extraction}: 0.5--2.5~s post-cue; the 0.5~s offset avoids
+    the cue-evoked visual potential. No baseline correction applied (bandpass
+    renders epoch means approximately zero).
+  \item \textbf{Label encoding}: left~$= 0$, right~$= 1$.
+\end{enumerate}
+Output arrays have shape $(\text{n\_trials},\, 22,\, 501)$.
+
+\subsection{Feature Extraction}
+
+\textbf{Feature A --- Time Domain (44-dim).} Mean and variance per channel
+over time. Because the signal is bandpass-filtered, means are approximately
+zero; variance is the primary discriminative signal. This set is intentionally
+simple---it tests the weakest possible time-domain representation, not
+time-domain features in general.
+
+\textbf{Feature B --- Band Power (88-dim).} Welch PSD (nperseg~$=256$, 50\%
+overlap, Hann window) per channel; average power in delta (0.5--4~Hz), theta
+(4--8~Hz), alpha (8--13~Hz), and beta (13--30~Hz). Natural log transform applied
+to normalise the skewed distribution and compress amplitude differences across
+recording systems. Yields $22\times4=88$ features.
+
+\textbf{Feature C --- FFT Magnitude (792-dim).} FFT magnitude restricted to
+4--40~Hz, linearly interpolated to 36 fixed frequency bins per channel. No log
+transform; StandardScaler inside the pipeline handles scale. Linear interpolation
+(over cubic spline) was chosen to preserve sharp spectral peaks. Yields
+$22\times36=792$ features.
+
+\subsection{Classifiers}
+
+Three classifiers were evaluated in scikit-learn Pipelines:
+\begin{itemize}[leftmargin=*, itemsep=1pt, topsep=3pt]
+  \item \textbf{Logistic Regression}: L2 regularisation, max\_iter~$=5000$,
+    preceded by StandardScaler.
+  \item \textbf{SVM}: RBF kernel ($C{=}1$, gamma~$=\texttt{scale}$), preceded by
+    StandardScaler.
+  \item \textbf{Random Forest}: 100 trees; no feature scaling (scale-invariant).
+\end{itemize}
+Placing StandardScaler inside the Pipeline ensures it is fitted only on training
+data, preventing leakage.
+
+\subsection{Evaluation Protocol}
+
+\textbf{Within-dataset} evaluation used 5-fold stratified cross-validation
+(shuffle, random\_state~$=42$).
+
+\textbf{Cross-dataset} evaluation used zero-shot transfer: train on the full
+source dataset, test on the full target dataset. Both directions were evaluated:
+PhysioNet~$\to$~BCI2a and BCI2a~$\to$~PhysioNet.
+
+Primary metric: \emph{balanced accuracy} (mean per-class recall), robust to
+class imbalance. All experiments used seed~42.
+
+The normalised generalisation gap is defined as:
+\begin{equation}
+  \text{Norm.\ Gap} = \frac{BA_{\text{within}} - BA_{\text{cross}}}{BA_{\text{within}}}
+  \label{eq:gap}
+\end{equation}
+An interpretation guide adapted from cross-dataset MI literature:
+gap~$<0.10$ is small degradation; 0.10--0.20 is moderate; $>0.20$ is severe.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Results}
+
+\subsection{Within-Dataset Accuracy}
+
+Table~\ref{tab:within} reports balanced accuracy for within-dataset evaluation.
+BCI2a accuracy (59--64\%) consistently exceeded PhysioNet (51--56\%) across all
+feature-model combinations. Band Power with Logistic Regression achieved the
+highest single result: 64.2\% on BCI2a. Figure~\ref{fig:heatmap} visualises
+this as a heatmap.
+
+PhysioNet accuracy was near chance across all configurations, reflecting the
+unscreened 109-subject pool and high inter-subject variability in motor imagery
+signal quality.
+
+\begin{table}[t]
+  \centering
+  \caption{Within-dataset balanced accuracy (mean $\pm$ std, 5-fold CV).
+           Chance level is 0.500.}
+  \label{tab:within}
+  \setlength{\tabcolsep}{4pt}
+  \small
+  \begin{tabular}{@{}llcc@{}}
+    \toprule
+    \textbf{Feature} & \textbf{Model} & \textbf{PhysioNet} & \textbf{BCI2a} \\
+    \midrule
+    \multirow{3}{*}{Time Domain}
+      & Log.\ Reg.   & $0.535 \pm 0.018$ & $0.639 \pm 0.014$ \\
+      & SVM          & $0.523 \pm 0.010$ & $0.591 \pm 0.029$ \\
+      & Rand.\ For.  & $0.509 \pm 0.007$ & $0.588 \pm 0.038$ \\
+    \midrule
+    \multirow{3}{*}{Band Power}
+      & Log.\ Reg.   & $0.559 \pm 0.026$ & $0.642 \pm 0.027$ \\
+      & SVM          & $0.529 \pm 0.015$ & $0.596 \pm 0.021$ \\
+      & Rand.\ For.  & $0.512 \pm 0.017$ & $0.608 \pm 0.019$ \\
+    \midrule
+    \multirow{3}{*}{FFT}
+      & Log.\ Reg.   & $0.556 \pm 0.014$ & $0.613 \pm 0.015$ \\
+      & SVM          & $0.539 \pm 0.010$ & $0.595 \pm 0.012$ \\
+      & Rand.\ For.  & $0.520 \pm 0.024$ & $0.567 \pm 0.010$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig1_within_dataset.png}
+  \caption{Within-dataset balanced accuracy heatmap (5-fold CV). BCI2a
+  consistently outperforms PhysioNet; all PhysioNet values are near chance.}
+  \label{fig:heatmap}
+\end{figure}
+
+\subsection{Cross-Dataset Accuracy and Generalisation Gap}
+
+Table~\ref{tab:cross} and Figure~\ref{fig:gap} report cross-dataset results.
+The two transfer directions showed strikingly different patterns.
+
+\textbf{PhysioNet~$\to$~BCI2a}: gaps were near zero or negative across all
+feature sets. Logistic Regression achieved slightly \emph{higher} cross-dataset
+than within-dataset accuracy on PhysioNet, producing negative gaps---a consequence
+of the near-chance PhysioNet baseline rather than genuine transfer.
+
+\textbf{BCI2a~$\to$~PhysioNet}: gaps were substantially larger (0.12--0.17),
+representing \emph{moderate} degradation by the interpretation guide. This
+reflects genuine performance loss when a model trained on 9 subjects is tested
+on 109 from a different recording system.
+
+Averaged across all models and both directions, FFT showed the smallest mean
+normalised gap (0.065), followed by Band Power (0.070) and Time Domain (0.071).
+Logistic Regression was the most robust model (mean gap: 0.059). All values
+fall in the \emph{small} degradation range, though the BCI~$\to$~Phys direction
+alone is consistently moderate.
+
+\begin{table}[t]
+  \centering
+  \caption{Cross-dataset balanced accuracy and normalised generalisation gap
+           (Eq.~\ref{eq:gap}). P~$\to$~B = PhysioNet~$\to$~BCI2a;
+           B~$\to$~P = BCI2a~$\to$~PhysioNet.}
+  \label{tab:cross}
+  \setlength{\tabcolsep}{3.5pt}
+  \small
+  \begin{tabular}{@{}llcccc@{}}
+    \toprule
+    & & \multicolumn{2}{c}{\textbf{P $\to$ B}} &
+        \multicolumn{2}{c}{\textbf{B $\to$ P}} \\
+    \cmidrule(lr){3-4}\cmidrule(lr){5-6}
+    \textbf{Feature} & \textbf{Model} & Acc. & Gap & Acc. & Gap \\
+    \midrule
+    \multirow{3}{*}{Time Dom.}
+      & LR  & 0.563 & $-$0.054 & 0.531 & 0.168 \\
+      & SVM & 0.500 & \phantom{$-$}0.044  & 0.513 & 0.133 \\
+      & RF  & 0.505 & \phantom{$-$}0.009  & 0.514 & 0.125 \\
+    \midrule
+    \multirow{3}{*}{Band Pow.}
+      & LR  & 0.581 & $-$0.038 & 0.537 & 0.164 \\
+      & SVM & 0.526 & \phantom{$-$}0.006  & 0.512 & 0.142 \\
+      & RF  & 0.522 & $-$0.019 & 0.507 & 0.167 \\
+    \midrule
+    \multirow{3}{*}{FFT}
+      & LR  & 0.572 & $-$0.029 & 0.528 & 0.140 \\
+      & SVM & 0.536 & \phantom{$-$}0.006  & 0.510 & 0.142 \\
+      & RF  & 0.514 & \phantom{$-$}0.012  & 0.499 & 0.120 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig3_scatter.png}
+  \caption{Within- vs.\ cross-dataset balanced accuracy. Points below the
+  diagonal degrade under distribution shift. Symbols indicate direction;
+  colours indicate feature set.}
+  \label{fig:scatter}
+\end{figure}
+
+
+% ── Full-width figure spanning both columns ───────────────────────────────────
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{fig2_gen_gap.png}
+  \caption{Mean normalised generalisation gap by feature representation, split
+  by transfer direction (averaged across models). Lower values indicate more
+  robust transfer. The BCI$\,\to\,$Phys direction reveals the real
+  degradation pattern; Phys$\,\to\,$BCI gaps are obscured by the near-chance
+  PhysioNet baseline.}
+  \label{fig:gap}
+\end{figure*}
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Discussion}
+
+\subsection{The Amplitude Distribution Shift}
+
+A diagnostic analysis of preprocessed arrays revealed a $9\times$ amplitude
+difference between datasets: PhysioNet signals ranged ${\pm}856\,\mu$V while
+BCI2a ranged ${\pm}96\,\mu$V. This arises from different recording hardware,
+electrode impedance, and amplifier gain---not from any difference in the
+underlying neural activity.
+
+This is the primary mechanistic explanation for cross-dataset degradation.
+Time-domain variance features are proportional to amplitude squared, making
+them maximally sensitive. FFT magnitude features scale linearly with amplitude.
+Log-transformed band power compresses the scale difference: empirically, despite
+the $9\times$ amplitude gap, log band power means were nearly identical across
+datasets (PhysioNet: $-22.8$, BCI2a: $-23.0$).
+
+\subsection{Why FFT Outperformed Band Power}
+
+The hypothesis predicted band power as most robust, but FFT showed a slightly
+smaller average gap. Log-transformed band power demonstrably compresses the
+amplitude shift, yet FFT's finer 36-bin resolution retains discriminative
+spectral information that broad band averages lose. The StandardScaler inside
+the FFT pipeline normalises scale at training time, partially compensating for
+amplitude differences without the coarsening effect of band aggregation.
+
+\subsection{The Near-Chance PhysioNet Baseline}
+
+Within-dataset accuracy on PhysioNet was near chance (51--56\%) across all
+configurations. This is not a pipeline error: run verification confirmed correct
+trial selection; signal diagnostics confirmed valid EEG-range amplitudes. The
+near-chance result reflects the genuine difficulty of motor imagery classification
+on an unscreened, heterogeneous 109-subject pool using zero-calibration classical
+features.
+
+This has a direct implication for the literature. Papers reporting 80--90\%
+accuracy on similar datasets likely employ subject selection, data leakage, or
+undisclosed per-subject calibration. In this study, the within-dataset scores
+should be interpreted as pooled trial-wise cross-validation baselines rather
+than fully subject-independent population-level estimates, because trials from
+the same subject can appear in different folds.
+
+\subsection{The Asymmetric Transfer Directions}
+
+The two transfer directions told fundamentally different stories.
+Phys~$\to$~BCI showed near-zero or negative gaps---not because transfer
+worked, but because the PhysioNet baseline was already at chance.
+BCI~$\to$~Phys revealed moderate degradation of 12--17\%, as 9 training
+subjects cannot capture the distributional variance of 109 test subjects
+from a different recording system. A study reporting only one transfer
+direction risks deeply misleading conclusions.
+
+\subsection{Logistic Regression as Most Robust Model}
+
+Logistic Regression showed the smallest average generalisation gap (0.059).
+This is consistent with the principle that simpler models generalise better
+under distribution shift: Random Forest can overfit to dataset-specific
+patterns during training, amplifying degradation when those patterns are
+absent in the target.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Limitations}
+
+\textbf{Two datasets only.} Findings are based on two datasets with similar
+left/right hand imagery paradigms. Generalisation to other EEG tasks (P300,
+SSVEP, cognitive load) or more diverse hardware cannot be assumed.
+
+\textbf{Near-chance PhysioNet baseline.} Near-chance within-dataset accuracy
+on PhysioNet severely limits interpretability of the Phys~$\to$~BCI direction:
+a meaningful generalisation gap requires a baseline sufficiently above chance.
+
+\textbf{Intentionally simple time-domain features.} The time-domain family
+uses only per-channel mean and variance. This is an intentionally weak baseline
+that tests simple statistical time-domain features, not time-domain
+representations in general. Richer time-domain families (e.g., Hjorth
+parameters, zero-crossing rates, AR coefficients) exist and may show different
+robustness characteristics.
+
+\textbf{Classical models only.} Deep learning may show qualitatively different
+generalisation patterns. This study deliberately excludes deep architectures to
+isolate feature representation effects; findings should not be extrapolated.
+
+\textbf{No domain adaptation.} Results represent strict zero-shot transfer.
+This study establishes the unadapted baseline against which alignment and
+adaptation methods should be compared.
+
+\textbf{Single random seed.} Cross-dataset experiments used a single seed.
+Within-dataset results include fold-level variance; cross-dataset point
+estimates lack confidence intervals.
+
+\textbf{No subject-level analysis.} Population-level near-chance accuracy may
+mask a bimodal distribution of strong and weak motor imagery responders.
+Subject-level analysis remains for future work.
+
+
+% ══════════════════════════════════════════════════════════════════════════════
+\section{Conclusion}
+
+This study provides a controlled empirical comparison of three classical EEG
+feature representations---time-domain statistics, log-transformed band power,
+and FFT magnitude---under strict zero-shot cross-dataset transfer between two
+publicly available motor imagery datasets. FFT features showed the smallest
+mean normalised generalisation gap (0.065), followed by band power (0.070) and
+time-domain features (0.071), with Logistic Regression as the most robust
+classifier. A $9\times$ amplitude difference between recording systems was
+identified as the primary mechanistic source of distribution shift.
+Log-transformed band power partially mitigates this shift, but differences
+between feature sets were modest, suggesting no classical representation fully
+solves the cross-dataset transfer problem. Within-dataset accuracy on an
+unscreened 109-subject population was near chance (51--56\%), providing an
+honest baseline that contrasts sharply with inflated numbers commonly reported
+in the BCI literature. These findings highlight the importance of
+bidirectional cross-dataset evaluation as a standard practice and motivate
+future work on amplitude-invariant feature representations for robust neural
+decoding.
+
+\section*{Acknowledgements}
+
+The PhysioNet EEG Motor Imagery dataset is available via PhysioNet.
+BCI Competition IV Dataset~2a is available via the MOABB framework.
+Code is available in the accompanying repository.
+
+\textit{AI use disclosure:} An AI writing assistant (Claude, Anthropic) was
+used to support professional prose writing, code formatting, and debugging.
+All research ideas, experimental design, dataset selection, pipeline decisions,
+and interpretation of results are solely the work of the author. No AI tool
+was used in the generation of results, analysis decisions, or scientific
+conclusions.
+
+% ── References ────────────────────────────────────────────────────────────────
+\begin{thebibliography}{9}
+\small
+
+\bibitem{brunner2008}
+C.~Brunner, R.~Leeb, G.~M\"{u}ller-Putz, A.~Schl\"{o}gl, and G.~Pfurtscheller,
+``BCI Competition 2008 -- Graz data set~A,''
+\textit{Graz University of Technology}, 2008.
+
+\bibitem{goldberger2000}
+A.~L.~Goldberger \textit{et al.},
+``PhysioBank, PhysioToolkit, and PhysioNet,''
+\textit{Circulation}, vol.~101, no.~23, pp.~e215--e220, 2000.
+
+\bibitem{jayaram2016}
+V.~Jayaram, M.~Alamgir, Y.~Altun, B.~Sch\"{o}lkopf, and M.~Grosse-Wentrup,
+``Transfer learning in brain-computer interfaces,''
+\textit{IEEE Comp.\ Intelligence Magazine}, vol.~11, no.~1, pp.~20--31, 2016.
+
+\bibitem{jayaram2018}
+V.~Jayaram and A.~Barachant,
+``MOABB: Trustworthy algorithm benchmarking for BCIs,''
+\textit{J.\ Neural Eng.}, vol.~15, no.~6, 2018.
+
+\bibitem{lotte2018}
+F.~Lotte \textit{et al.},
+``A review of classification algorithms for EEG-based BCIs: A 10-year update,''
+\textit{J.\ Neural Eng.}, vol.~15, no.~3, 2018.
+
+\bibitem{pfurtscheller2001}
+G.~Pfurtscheller and C.~Neuper,
+``Motor imagery and direct brain-computer communication,''
+\textit{Proc.\ IEEE}, vol.~89, no.~7, pp.~1123--1134, 2001.
+
+\bibitem{schalk2004}
+G.~Schalk, D.~J.~McFarland, T.~Hinterberger, N.~Birbaumer, and J.~R.~Wolpaw,
+``BCI2000: A general-purpose BCI system,''
+\textit{IEEE Trans.\ Biomed.\ Eng.}, vol.~51, no.~6, pp.~1034--1043, 2004.
+
+\bibitem{schirrmeister2017}
+R.~T.~Schirrmeister \textit{et al.},
+``Deep learning with CNNs for EEG decoding and visualization,''
+\textit{Human Brain Mapping}, vol.~38, no.~11, pp.~5391--5420, 2017.
+
+\end{thebibliography}
+
+\end{document}

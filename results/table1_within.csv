@@ -1,0 +1,10 @@
+Feature,Model,PhysioNet mean,PhysioNet std,BCI2a mean,BCI2a std
+Time Domain,Log. Reg.,0.5345,0.0182,0.6389,0.0136
+Time Domain,SVM,0.5225,0.0103,0.5915,0.0288
+Time Domain,Rand. Forest,0.5092,0.007,0.5876,0.0378
+Band Power,Log. Reg.,0.5594,0.0256,0.6424,0.0274
+Band Power,SVM,0.5294,0.0153,0.5965,0.0209
+Band Power,Rand. Forest,0.5118,0.0167,0.608,0.0195
+FFT,Log. Reg.,0.5556,0.0139,0.6135,0.0154
+FFT,SVM,0.5388,0.0099,0.5945,0.0116
+FFT,Rand. Forest,0.52,0.0243,0.5668,0.01

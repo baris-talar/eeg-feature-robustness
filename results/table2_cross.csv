@@ -1,0 +1,10 @@
+Feature,Model,Phys→BCI accuracy,Phys→BCI norm gap,BCI→Phys accuracy,BCI→Phys norm gap
+Time Domain,Log. Reg.,0.5633,-0.0538,0.5314,0.1683
+Time Domain,SVM,0.4996,0.0438,0.5127,0.1332
+Time Domain,Rand. Forest,0.5046,0.009,0.5142,0.125
+Band Power,Log. Reg.,0.5806,-0.0379,0.537,0.1641
+Band Power,SVM,0.5262,0.006,0.5119,0.1419
+Band Power,Rand. Forest,0.5216,-0.0192,0.5065,0.167
+FFT,Log. Reg.,0.5718,-0.0291,0.5275,0.1401
+FFT,SVM,0.5359,0.0055,0.5103,0.1416
+FFT,Rand. Forest,0.5139,0.0117,0.4985,0.1204
