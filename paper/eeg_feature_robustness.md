@@ -1,13 +1,13 @@
 # Robustness of EEG Feature Representations Under Cross-Dataset Distribution Shift Using Classical Models
 
-**Arc**  
-Independent Research, 2026  
+**Barış Talar**  
+baristalar21@gmail.com  
 
 ---
 
 ## Abstract
 
-EEG-based brain-computer interfaces (BCIs) frequently report high within-dataset classification accuracy, yet performance collapses when models are applied to new datasets recorded under different conditions. This paper investigates whether frequency-domain feature representations are more robust than time-domain statistical features under cross-dataset distribution shift. Using two publicly available motor imagery datasets — PhysioNet EEG Motor Imagery (109 subjects) and BCI Competition IV Dataset 2a (9 subjects) — we evaluate 9 feature-model combinations under strict zero-shot transfer conditions in both transfer directions. We find that FFT magnitude features showed the smallest mean normalised generalisation gap (0.065), followed by band power (0.070) and time-domain features (0.071), though differences were modest. Critically, within-dataset accuracy across all feature sets was near chance for PhysioNet (53–56%), revealing that the commonly reported high accuracies in the literature are unlikely to reflect genuine generalisation. These results suggest that amplitude-scale differences between recording systems — empirically confirmed as a 9× difference in this study — are a primary barrier to cross-dataset transfer, and that log-transformed frequency features partially mitigate this shift.
+EEG-based brain-computer interfaces (BCIs) frequently report high within-dataset classification accuracy, yet performance collapses when models are applied to new datasets recorded under different conditions. This paper investigates whether frequency-domain feature representations are more robust than time-domain statistical features under cross-dataset distribution shift. Using two publicly available motor imagery datasets — PhysioNet EEG Motor Imagery (109 subjects) and BCI Competition IV Dataset 2a (9 subjects) — we evaluate 9 feature-model combinations under strict zero-shot transfer conditions in both transfer directions. We find that FFT magnitude features showed the smallest mean normalised generalisation gap (0.065), followed by band power (0.070) and time-domain features (0.071), though differences were modest. Critically, within-dataset accuracy across all feature sets was near chance for PhysioNet (53–56%), indicating that commonly reported high within-dataset accuracies do not necessarily reflect genuine cross-dataset generalisation. These results suggest that amplitude-scale differences between recording systems — empirically confirmed as a 9× difference in this study — are a primary barrier to cross-dataset transfer, and that log-transformed frequency features partially mitigate this shift.
 
 ---
 
@@ -23,7 +23,7 @@ This paper addresses that question directly. We compare three classical feature 
 
 Our central hypothesis is that frequency-domain features will be more robust under distribution shift than time-domain features, because EEG is fundamentally a frequency-domain signal whose oscillatory band structure is more stable across recording conditions than its absolute amplitude distribution.
 
-The contributions of this work are: (1) a controlled empirical comparison of three feature representations under cross-dataset transfer, (2) empirical quantification of the amplitude-scale distribution shift between two widely used public datasets, and (3) an honest characterisation of within-dataset accuracy for classical features on unscreened subject populations, providing a realistic baseline against which inflated literature claims can be evaluated.
+The contributions of this work are: (1) a controlled empirical comparison of three feature representations under cross-dataset transfer, (2) empirical quantification of the amplitude-scale distribution shift between two widely used public datasets, and (3) a transparent characterisation of within-dataset accuracy for classical features on an unscreened subject population, providing a realistic pooled trial-wise baseline for interpreting cross-dataset robustness.
 
 ---
 
@@ -33,7 +33,7 @@ The contributions of this work are: (1) a controlled empirical comparison of thr
 
 **Cross-dataset generalisation.** Cross-dataset generalisation in EEG is significantly less studied than within-dataset evaluation. Jayaram et al. (2016) demonstrated through the MOABB benchmark that many published BCI algorithms show dramatic performance drops under cross-session and cross-subject evaluation. Lotte et al. (2018) reviewed EEG feature extraction methods and noted that cross-subject generalisation remains an open problem. Recent work has explored domain adaptation techniques — including transfer learning, covariate shift correction, and alignment methods — to improve cross-dataset performance. However, these approaches modify the training procedure rather than isolating which underlying feature representation is inherently more robust. Wu et al. (2022) and Schirrmeister et al. (2017) have applied deep learning to cross-dataset EEG transfer, but deep architectures couple feature extraction and classification, obscuring the source of any observed robustness.
 
-**Gap this study fills.** A clean, controlled comparison of simple classical feature representations under strict zero-shot cross-dataset transfer — using identical preprocessing, identical models, and both transfer directions — has not been performed in the way this study frames it. Existing cross-dataset work either uses domain adaptation (which changes the transfer setup), focuses on deep learning (which conflates features and models), or evaluates cross-subject within a single dataset rather than truly cross-dataset. Our study isolates the feature representation as the sole variable across a controlled experimental grid.
+**Gap this study fills.** To our knowledge, prior work has rarely isolated feature representation as the sole variable under a strict train-on-one-dataset, test-on-another design with identical preprocessing and both transfer directions. Existing cross-dataset work often uses domain adaptation (which changes the transfer setup), focuses on deep learning (which conflates features and models), or evaluates cross-subject variation within a single dataset rather than truly cross-dataset transfer. Our study provides a controlled classical baseline in which the feature representation is the main variable of interest.
 
 ---
 
@@ -81,7 +81,7 @@ StandardScaler was placed inside a scikit-learn Pipeline to ensure scaling was f
 
 ### 3.5 Evaluation Protocol
 
-**Within-dataset evaluation** used 5-fold stratified cross-validation (shuffle=True, random\_state=42). Stratification preserved the 50/50 class balance within each fold.
+**Within-dataset evaluation** used 5-fold stratified cross-validation (shuffle=True, random\_state=42). Stratification preserved the 50/50 class balance within each fold. Because trials were pooled across subjects before splitting, these within-dataset scores should be interpreted as pooled trial-wise baselines rather than fully subject-independent grouped-subject estimates.
 
 **Cross-dataset evaluation** used zero-shot transfer: models were trained on the entire source dataset and tested on the entire target dataset with no overlap and no fine-tuning. Both transfer directions were evaluated: PhysioNet → BCI2a and BCI2a → PhysioNet.
 
@@ -162,7 +162,7 @@ The hypothesis predicted band power as the most robust feature set, but FFT show
 
 Within-dataset accuracy on PhysioNet was near chance (51–56%) across all configurations. This is not a pipeline error — run verification confirmed correct trial selection, and signal diagnostics confirmed valid EEG-range amplitudes. The near-chance result reflects the genuine difficulty of motor imagery classification on an unscreened, heterogeneous 109-subject population using classical features without subject-specific calibration.
 
-This finding has a direct implication for the literature. Papers reporting 80–90% within-dataset accuracy on similar datasets are likely using subject selection, data leakage, or per-subject calibration without clearly disclosing it. In this study, the within-dataset scores should be interpreted as pooled trial-wise cross-validation baselines rather than fully subject-independent population-level estimates, because trials from the same subject can appear in different folds.
+This finding has a direct implication for the literature. Reported accuracies of 80–90% on similar paradigms may reflect differences in evaluation protocol, subject selection, or subject-specific calibration rather than population-level cross-dataset generalisation. In this study, the within-dataset scores should be interpreted as pooled trial-wise cross-validation baselines rather than fully subject-independent population-level estimates, because trials from the same subject can appear in different folds.
 
 ### 5.4 The Asymmetric Transfer Directions
 
@@ -196,7 +196,7 @@ Logistic Regression showed the smallest average generalisation gap (0.059) acros
 
 ## 7. Conclusion
 
-This study provides a controlled empirical comparison of three classical EEG feature representations — time-domain statistics, log-transformed band power, and FFT magnitude — under strict zero-shot cross-dataset transfer between two publicly available motor imagery datasets. We find that FFT features showed the smallest mean normalised generalisation gap (0.065), followed by band power (0.070) and time-domain features (0.071), with Logistic Regression as the most robust classifier. A 9× amplitude difference between recording systems was identified as the primary mechanistic source of distribution shift. Log-transformed band power partially mitigates this shift through scale compression, but the differences between feature sets were modest, suggesting that no classical feature representation fully solves the cross-dataset transfer problem. Critically, within-dataset accuracy on an unscreened 109-subject population was near chance (51–56%), providing an honest baseline that contrasts sharply with the inflated numbers commonly reported in the BCI literature. These findings highlight the importance of cross-dataset evaluation as a standard practice in BCI research and motivate future work on amplitude-invariant feature representations for robust neural decoding.
+This study provides a controlled empirical comparison of three classical EEG feature representations — time-domain statistics, log-transformed band power, and FFT magnitude — under strict zero-shot cross-dataset transfer between two publicly available motor imagery datasets. We find that FFT features showed the smallest mean normalised generalisation gap (0.065), followed by band power (0.070) and time-domain features (0.071), with Logistic Regression as the most robust classifier. A 9× amplitude difference between recording systems was identified as the primary mechanistic source of distribution shift. Log-transformed band power partially mitigates this shift through scale compression, but the differences between feature sets were modest, suggesting that no classical feature representation fully solves the cross-dataset transfer problem. Within-dataset accuracy on an unscreened 109-subject population was near chance (51–56%), and in this study should be interpreted as a pooled trial-wise baseline rather than a fully subject-independent estimate. These findings highlight the importance of cross-dataset evaluation as a standard practice in BCI research and motivate future work on amplitude-invariant feature representations for robust neural decoding.
 
 ---
 

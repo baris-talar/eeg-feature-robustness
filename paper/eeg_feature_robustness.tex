@@ -75,7 +75,6 @@
   {\LARGE\bfseries Robustness of EEG Feature Representations Under\\[4pt]
    Cross-Dataset Distribution Shift Using Classical Models}\\[14pt]
   {\large Barış Talar}\\[4pt]
-  {\normalsize Independent Research, 2026}\\[2pt]
   {\small\texttt{baristalar21@gmail.com}}\\[16pt]
 \end{center}
 %
@@ -92,8 +91,8 @@ combinations under strict zero-shot transfer in both directions. FFT magnitude
 features showed the smallest mean normalised generalisation gap (0.065), followed
 by band power (0.070) and time-domain features (0.071), though differences were
 modest. Critically, within-dataset accuracy was near chance for PhysioNet (53--56\%),
-revealing that commonly reported high accuracies in the literature are unlikely to
-reflect genuine generalisation. A $9\times$ amplitude difference between recording
+indicating that commonly reported high within-dataset accuracies do not
+necessarily reflect genuine cross-dataset generalisation. A $9\times$ amplitude difference between recording
 systems was empirically confirmed as the primary barrier to cross-dataset transfer;
 log-transformed frequency features partially mitigate this shift.
 \end{abstract}
@@ -143,8 +142,9 @@ structure is more stable across recording conditions than its absolute amplitude
     under strict cross-dataset transfer in both directions.
   \item Empirical quantification of the amplitude-scale distribution shift between
     two widely used public datasets.
-  \item An honest within-dataset accuracy baseline for unscreened subject
-    populations, providing a realistic reference for evaluating literature claims.
+  \item A transparent within-dataset accuracy characterisation for an unscreened
+    subject population, providing a realistic pooled trial-wise baseline for
+    interpreting cross-dataset robustness.
 \end{itemize}
 
 
@@ -180,12 +180,12 @@ exclusively evaluated \emph{within} a single dataset.
 
 \subsection{Gap This Study Fills}
 
-The defensible novelty claim is not that nobody studied classical EEG features,
-but rather that no prior work isolates the feature representation as the \emph{sole}
-variable under a strict train-on-$A$, test-on-$B$ design with identical
-preprocessing and both transfer directions. Our study provides that controlled
-baseline---the reference point against which domain adaptation methods should
-be compared.
+To our knowledge, prior work has rarely isolated feature representation as the
+\emph{sole} variable under a strict train-on-$A$, test-on-$B$ design with
+identical preprocessing and both transfer directions. Existing work more often
+focuses on domain adaptation, deep architectures, or cross-subject evaluation
+within a single dataset. Our study provides a controlled classical baseline
+against which such approaches can be compared.
 
 
 % ══════════════════════════════════════════════════════════════════════════════
@@ -257,7 +257,9 @@ data, preventing leakage.
 \subsection{Evaluation Protocol}
 
 \textbf{Within-dataset} evaluation used 5-fold stratified cross-validation
-(shuffle, random\_state~$=42$).
+(shuffle, random\_state~$=42$). Because trials were pooled across subjects
+before splitting, these scores should be interpreted as pooled trial-wise
+baselines rather than fully subject-independent grouped-subject estimates.
 
 \textbf{Cross-dataset} evaluation used zero-shot transfer: train on the full
 source dataset, test on the full target dataset. Both directions were evaluated:
@@ -440,12 +442,13 @@ near-chance result reflects the genuine difficulty of motor imagery classificati
 on an unscreened, heterogeneous 109-subject pool using zero-calibration classical
 features.
 
-This has a direct implication for the literature. Papers reporting 80--90\%
-accuracy on similar datasets likely employ subject selection, data leakage, or
-undisclosed per-subject calibration. In this study, the within-dataset scores
-should be interpreted as pooled trial-wise cross-validation baselines rather
-than fully subject-independent population-level estimates, because trials from
-the same subject can appear in different folds.
+This has a direct implication for the literature. Reported accuracies of
+80--90\% on similar paradigms may reflect differences in evaluation protocol,
+subject selection, or subject-specific calibration rather than population-level
+cross-dataset generalisation. In this study, the within-dataset scores should
+be interpreted as pooled trial-wise cross-validation baselines rather than
+fully subject-independent population-level estimates, because trials from the
+same subject can appear in different folds.
 
 \subsection{The Asymmetric Transfer Directions}
 
@@ -515,9 +518,9 @@ identified as the primary mechanistic source of distribution shift.
 Log-transformed band power partially mitigates this shift, but differences
 between feature sets were modest, suggesting no classical representation fully
 solves the cross-dataset transfer problem. Within-dataset accuracy on an
-unscreened 109-subject population was near chance (51--56\%), providing an
-honest baseline that contrasts sharply with inflated numbers commonly reported
-in the BCI literature. These findings highlight the importance of
+unscreened 109-subject population was near chance (51--56\%) and, in this
+study, should be interpreted as a pooled trial-wise baseline rather than a
+fully subject-independent estimate. These findings highlight the importance of
 bidirectional cross-dataset evaluation as a standard practice and motivate
 future work on amplitude-invariant feature representations for robust neural
 decoding.
