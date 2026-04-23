@@ -113,7 +113,7 @@ classification.
 
 Despite decades of research, EEG-based BCIs face a persistent barrier: models
 trained on one dataset rarely transfer to another. Studies routinely report
-within-dataset accuracies of 80--90\%, yet these numbers are produced by training
+within-dataset accuracies of 80--90\%~\cite{wang2020,mathiyazhagan2025}, yet these numbers are produced by training
 and testing on the same subjects under the same recording conditions. When the same
 model is applied to a different dataset---different subjects, amplifiers, electrode
 configurations---performance collapses to near chance. This gap between reported
@@ -167,7 +167,7 @@ Dataset~2a.
 Cross-dataset generalisation is significantly less studied than within-dataset
 evaluation. Jayaram et al.~\cite{jayaram2016} demonstrated through the MOABB
 benchmark that many published BCI algorithms show dramatic performance drops
-under cross-session and cross-subject evaluation, explicitly framing this as a
+under cross-session and cross-subject evaluation~\cite{zhu2025,ingolfsson2020}, explicitly framing this as a
 \emph{cross-dataset variability problem} that weakens generalisation.
 
 Crucially, the part of the literature that most directly addresses ``robustness
@@ -176,7 +176,7 @@ recent reviews of MI-EEG classification are dominated by deep architectures
 \cite{schirrmeister2017}, while contemporary cross-dataset MI work centres on
 transfer learning, pre-training, covariate-shift alignment, and graph-based
 models~\cite{lotte2018}. Classical feature-engineering work exists but is almost
-exclusively evaluated \emph{within} a single dataset.
+exclusively evaluated \emph{within} a single dataset~\cite{padfield2019}.
 
 \subsection{Gap This Study Fills}
 
@@ -443,7 +443,7 @@ on an unscreened, heterogeneous 109-subject pool using zero-calibration classica
 features.
 
 This has a direct implication for the literature. Reported accuracies of
-80--90\% on similar paradigms may reflect differences in evaluation protocol,
+80--90\%~\cite{wang2020,mathiyazhagan2025} on similar paradigms may reflect differences in evaluation protocol,
 subject selection, or subject-specific calibration rather than population-level
 cross-dataset generalisation. In this study, the within-dataset scores should
 be interpreted as pooled trial-wise cross-validation baselines rather than
@@ -539,8 +539,14 @@ was used in the generation of results, analysis decisions, or scientific
 conclusions.
 
 % ── References ────────────────────────────────────────────────────────────────
-\begin{thebibliography}{9}
+\begin{thebibliography}{12}
 \small
+
+\bibitem{bouchane2025}
+M.~Bouchane, W.~Guo, and S.~Yang,
+``Hybrid CNN-GRU models for improved EEG motor imagery classification,''
+\textit{Sensors}, vol.~25, no.~5, article~1399, 2025.
+DOI: 10.3390/s25051399.
 
 \bibitem{brunner2008}
 C.~Brunner, R.~Leeb, G.~M\"{u}ller-Putz, A.~Schl\"{o}gl, and G.~Pfurtscheller,
@@ -552,35 +558,69 @@ A.~L.~Goldberger \textit{et al.},
 ``PhysioBank, PhysioToolkit, and PhysioNet,''
 \textit{Circulation}, vol.~101, no.~23, pp.~e215--e220, 2000.
 
+\bibitem{ingolfsson2020}
+T.~M.~Ingolfsson, M.~Hersche, X.~Wang, N.~Kobayashi, L.~Cavigelli, and L.~Benini,
+``EEG-TCNet: An accurate temporal convolutional network for embedded
+motor-imagery brain-machine interfaces,''
+\textit{arXiv preprint arXiv:2006.00622}, 2020.
+
 \bibitem{jayaram2016}
 V.~Jayaram, M.~Alamgir, Y.~Altun, B.~Sch\"{o}lkopf, and M.~Grosse-Wentrup,
 ``Transfer learning in brain-computer interfaces,''
-\textit{IEEE Comp.\ Intelligence Magazine}, vol.~11, no.~1, pp.~20--31, 2016.
+\textit{IEEE Computational Intelligence Magazine}, vol.~11, no.~1, pp.~20--31, 2016.
 
 \bibitem{jayaram2018}
 V.~Jayaram and A.~Barachant,
 ``MOABB: Trustworthy algorithm benchmarking for BCIs,''
-\textit{J.\ Neural Eng.}, vol.~15, no.~6, 2018.
+\textit{Journal of Neural Engineering}, vol.~15, no.~6, 2018.
 
 \bibitem{lotte2018}
 F.~Lotte \textit{et al.},
 ``A review of classification algorithms for EEG-based BCIs: A 10-year update,''
-\textit{J.\ Neural Eng.}, vol.~15, no.~3, 2018.
+\textit{Journal of Neural Engineering}, vol.~15, no.~3, 2018.
+
+\bibitem{mathiyazhagan2025}
+S.~Mathiyazhagan and M.~S.~Geetha~Devasena,
+``Motor imagery EEG signal classification using novel deep learning algorithm,''
+\textit{Scientific Reports}, vol.~15, article~24539, 2025.
+DOI: 10.1038/s41598-025-00824-7.
+
+\bibitem{padfield2019}
+N.~Padfield \textit{et al.},
+``EEG-based brain-computer interfaces using motor-imagery: Techniques and challenges,''
+\textit{Sensors}, vol.~19, no.~6, article~1423, 2019.
+DOI: 10.3390/s19061423.
 
 \bibitem{pfurtscheller2001}
 G.~Pfurtscheller and C.~Neuper,
 ``Motor imagery and direct brain-computer communication,''
-\textit{Proc.\ IEEE}, vol.~89, no.~7, pp.~1123--1134, 2001.
+\textit{Proceedings of the IEEE}, vol.~89, no.~7, pp.~1123--1134, 2001.
 
 \bibitem{schalk2004}
 G.~Schalk, D.~J.~McFarland, T.~Hinterberger, N.~Birbaumer, and J.~R.~Wolpaw,
-``BCI2000: A general-purpose BCI system,''
-\textit{IEEE Trans.\ Biomed.\ Eng.}, vol.~51, no.~6, pp.~1034--1043, 2004.
+``BCI2000: A general-purpose brain-computer interface (BCI) system,''
+\textit{IEEE Transactions on Biomedical Engineering}, vol.~51, no.~6,
+pp.~1034--1043, 2004.
 
 \bibitem{schirrmeister2017}
 R.~T.~Schirrmeister \textit{et al.},
-``Deep learning with CNNs for EEG decoding and visualization,''
+``Deep learning with convolutional neural networks for EEG decoding and
+visualization,''
 \textit{Human Brain Mapping}, vol.~38, no.~11, pp.~5391--5420, 2017.
+
+\bibitem{wang2020}
+X.~Wang, M.~Hersche, B.~T\"{o}mekce, B.~Kaya, M.~Magno, and L.~Benini,
+``An accurate EEGNet-based motor-imagery brain-computer interface for
+low-power edge computing,''
+in \textit{Proc.\ IEEE MeMeA}, 2020.
+DOI: 10.1109/MeMeA49120.2020.9137134.
+
+\bibitem{zhu2025}
+T.~Zhu, H.~Tang, L.~Jiang \textit{et al.},
+``A study of motor imagery EEG classification based on feature fusion and
+attentional mechanisms,''
+\textit{Frontiers in Human Neuroscience}, vol.~19, article~1611229, 2025.
+DOI: 10.3389/fnhum.2025.1611229.
 
 \end{thebibliography}
 
