@@ -1,0 +1,435 @@
+EEG CROSS-DATASET RESEARCH — DATASET NOTES
+
+==================================================
+CITATIONS
+==================================================
+
+PhysioNet EEG Motor Imagery:
+  Schalk, G., McFarland, D.J., Hinterberger, T., Birbaumer, N., Wolpaw, J.R.
+  BCI2000: A General-Purpose Brain-Computer Interface (BCI) System.
+  IEEE Trans. Biomed. Eng. 51(6):1034-1043, 2004.
+
+  Goldberger AL, Amaral LAN, Glass L, et al.
+  PhysioBank, PhysioToolkit, and PhysioNet: Components of a New Research
+  Resource for Complex Physiologic Signals.
+  Circulation. 101(23):e215-e220, 2000.
+
+  URL: https://physionet.org/content/eegmmidb/1.0.0/
+  License: PhysioNet Credentialed Health Data License 1.5.0
+           (publicly available, no registration required for this dataset)
+
+BCI Competition IV Dataset 2a:
+  Brunner C., Leeb R., Müller-Putz G., Schlögl A., Pfurtscheller G.
+  BCI Competition 2008 – Graz data set A.
+  Institute for Knowledge Discovery, Graz University of Technology, 2008.
+
+  URL: http://bnci-horizon-2020.eu/database/data-sets
+  License: Freely available for research use.
+           Accessed via MOABB (Mother of All BCI Benchmarks).
+
+MOABB:
+  Jayaram V., Barachant A.
+  MOABB: trustworthy algorithm benchmarking for BCIs.
+  Journal of Neural Engineering, 15(6), 2018.
+
+==================================================
+DATASETS
+==================================================
+
+PhysioNet EEG Motor Imagery
+- Subjects: 109
+- Sampling rate: 160 Hz (resampled to 250 Hz)
+- Channels: 64 EEG (→ reduced to 22 shared channels)
+- Tasks: left, right, feet, tongue, rest
+- Relevant runs: 0, 1, 2 in MOABB's returned run identifiers
+  (corresponding to the left/right imagery runs used by this pipeline)
+- Labels (MNE): left_hand, right_hand, rest
+- Event codes: T1=left, T2=right, T0=rest
+- Verified trial count after preprocessing: 4918 (2480 left, 2438 right)
+
+BCI Competition IV 2a (BNCI2014_001)
+- Subjects: 9
+- Sampling rate: 250 Hz
+- Channels: 22 EEG (+ 3 EOG, ignored)
+- Tasks: left, right, feet, tongue
+- Labels (MNE): left_hand, right_hand, feet, tongue
+- Event codes: 769=left, 770=right, 771=feet, 772=tongue
+- Verified trial count after preprocessing: 2592 (1296 left, 1296 right)
+
+==================================================
+SHARED CHANNEL SPACE (22 EEG)
+==================================================
+
+Fz,
+FC3 FC1 FCz FC2 FC4,
+C5 C3 C1 Cz C2 C4 C6,
+CP3 CP1 CPz CP2 CP4,
+P1 Pz P2 POz
+
+- PhysioNet → reduce to these 22
+- BCI2a → select these 22 (drop EOG)
+
+==================================================
+TASK & LABELS
+==================================================
+
+Binary classification: LEFT vs RIGHT
+
+Removed:
+- PhysioNet: rest
+- Both: feet, tongue
+
+Label encoding:
+- left_hand  → 0
+- right_hand → 1
+
+==================================================
+PREPROCESSING PIPELINE
+==================================================
+
+Applied identically to both datasets:
+
+1. Select 22 shared channels
+2. Resample to 250 Hz
+3. Bandpass filter: 4–40 Hz
+4. Epoch extraction:
+   - window: 0.5–2.5 s post-cue
+5. Keep left/right trials only
+6. Convert to NumPy arrays
+
+Output:
+- X: (n_trials, 22, 501)
+- y: (n_trials,) ∈ {0,1}
+
+PREPROCESSING DESIGN DECISIONS:
+
+Resampling (PhysioNet 160 Hz → 250 Hz):
+  MNE uses polyphase filtering for resampling. This is a standard
+  signal processing method that applies an anti-aliasing low-pass
+  filter before changing the sampling rate. It preserves the
+  frequency content of the signal correctly without introducing
+  artifacts. We resample UP to 250 Hz (not down) to match BCI2a's
+  native rate and avoid losing any frequency information.
+  npad='auto' lets MNE choose optimal padding to avoid edge effects.
+
+Bandpass filter (4–40 Hz, MNE default FIR):
+  Motor imagery signal lives in mu rhythm (8–12 Hz) and beta rhythm
+  (13–30 Hz). Filtering to 4–40 Hz captures both cleanly while
+  removing slow drifts below 4 Hz and high-frequency noise above
+  40 Hz. Applied using MNE's default FIR filter design.
+  Important side effect: after bandpass filtering, the mean of each
+  epoch is approximately zero by construction. This directly affects
+  Feature Set A (time domain) — mean features will be near zero for
+  all trials, making variance the only informative time-domain feature.
+
+Epoch window (0.5–2.5 s post-cue):
+  We skip the first 0.5 seconds after the cue onset deliberately.
+  The immediate cue onset causes a visual evoked response — a
+  brain reaction to seeing the cue, not to imagining movement.
+  Starting at 0.5 s captures only the motor imagery period.
+  The 2-second window at 250 Hz gives 501 timepoints because
+  MNE includes the endpoint.
+
+==================================================
+FEATURE SETS
+==================================================
+
+A — Time (baseline)
+- Mean + variance per channel
+- Dim: 44
+- Note: mean ≈ 0 after bandpass filtering, so variance
+  carries almost all the information in this feature set.
+  This is intentionally the weakest baseline.
+
+B — Band power
+- Welch PSD, 4 bands: delta (0.5-4), theta (4-8),
+  alpha (8-13), beta (13-30) Hz
+- Log transform applied
+- Dim: 22 × 4 = 88
+- Why Welch: more stable PSD estimate than plain FFT.
+  Welch divides the signal into overlapping windows,
+  computes FFT on each, and averages. Less noise.
+- Why log transform: band power values follow a skewed
+  distribution (most values small, few very large).
+  Log transform makes the distribution more bell-shaped,
+  which is what Logistic Regression and SVM expect.
+  StandardScaler then handles the final scaling.
+  Log transform also compresses the 9x amplitude difference
+  between datasets — empirically verified (Finding 2).
+
+C — FFT magnitude
+- FFT in 4–40 Hz
+- Interpolated to fixed bins (n_bins=36)
+- Dim: 22 × 36 = 792
+- No log transform — intentional design choice.
+  Reason 1: StandardScaler inside the Pipeline handles
+  scale normalisation during training.
+  Reason 2: Any remaining scale mismatch between datasets
+  is genuine distribution shift we want to measure, not
+  an artifact to hide. Applying log would partially mask
+  the cross-dataset degradation we are studying.
+- Interpolation to fixed bins: FFT bin resolution depends
+  on window length and sampling rate. Without interpolation,
+  datasets with different parameters would produce different
+  feature dimensions. Interpolating to 36 fixed bins ensures
+  both datasets produce the same feature shape (792 dims).
+
+==================================================
+KEY DIFFERENCES (DISTRIBUTION SHIFT)
+==================================================
+
+- Subjects: 109 vs 9
+- Sampling rate: 160 → 250 vs 250
+- Channels: 64 → 22 vs 22
+- Structure: mixed runs vs structured sessions
+
+→ Causes cross-dataset generalisation difficulty
+
+==================================================
+EMPIRICAL FINDINGS (discovered during experiments)
+==================================================
+
+DATE: 2026-04-22
+
+[Finding 1] — Amplitude scale difference between datasets
+  Verified from raw preprocessed arrays:
+  - PhysioNet amplitude range: ±856 μV
+  - BCI2a amplitude range:     ±96 μV
+  - Scale difference: ~9x
+  Interpretation: Different recording hardware, electrode impedance,
+  and amplifier gains between labs create a large amplitude
+  distribution shift. This is a primary source of cross-dataset
+  degradation independent of brain signal content.
+
+[Finding 2] — Log transform on band power absorbs amplitude shift
+  Band power means after log transform:
+  - PhysioNet: ~-22.8 across bands
+  - BCI2a:     ~-23.0 across bands
+  Despite 9x raw amplitude difference, log-transformed band power
+  values are nearly identical across datasets. This mechanistically
+  explains why band power is expected to be the most robust feature
+  set — the log transform compresses inter-dataset scale differences.
+
+[Finding 3] — Within-dataset accuracy is near chance for PhysioNet
+  PhysioNet within-dataset balanced accuracy: 53-56%
+  BCI2a within-dataset balanced accuracy: 59-64%
+  Interpretation: PhysioNet contains 109 unscreened subjects with
+  highly variable signal quality. BCI2a subjects were screened for
+  a competition. Averaging across all PhysioNet subjects naturally
+  pulls accuracy toward chance. This is an honest baseline — inflated
+  results in the literature likely come from subject selection or
+  data leakage.
+
+[Finding 4] — Run verification confirmed correct data selection
+  Verified via MOABB annotation inspection (subject 1):
+  - Runs 0,1,2: contain left_hand, right_hand, rest → USED
+  - Runs 3,4,5: contain hands, feet, rest → CORRECTLY EXCLUDED
+  Pipeline is selecting exactly the right motor imagery trials.
+
+[Finding 5] — Hypothesis partially supported
+  FFT (not Band Power) showed the smallest average normalised gap.
+  Most robust: FFT (avg normalised gap: 0.0650)
+  Least robust: Time Domain (avg normalised gap: 0.0709)
+  Differences between feature sets are small, suggesting near-chance
+  within-dataset accuracy compresses the observable gap.
+
+[Finding 6] — BCI→Phys direction reveals the real generalisation story
+  BCI→Phys gaps (0.12–0.17) are far larger than Phys→BCI gaps (~0.00).
+  Phys→BCI gaps are near zero because PhysioNet within-accuracy is
+  already near chance — there is nowhere to fall.
+  The meaningful signal is in BCI→Phys: training on 9 subjects and
+  testing on 109 loses 12–17% of performance depending on feature set.
+  FFT RandomForest had the single smallest gap (0.1204).
+  Time Domain LogReg had the largest gap (0.1683).
+
+[Finding 7] — Logistic Regression is the most robust model
+  Averaged across all feature sets and directions:
+  Log. Reg. avg normalised gap: 0.0586 (most robust)
+  This is consistent with the idea that simpler linear models
+  generalise better under distribution shift than complex ones.
+
+[Finding 8] — Within-dataset accuracy does not predict cross-dataset accuracy
+  PhysioNet within-accuracy (~53–56%) is near chance, yet cross-dataset
+  accuracy is similar (~50–58%). The near-chance baseline compresses
+  the observable generalisation gap and makes Phys→BCI direction
+  uninformative. Future work should use datasets with higher
+  within-dataset baselines to get cleaner generalisation gap estimates.
+
+==================================================
+EVALUATION METHODOLOGY
+==================================================
+
+Within-dataset evaluation:
+- Method: 5-fold stratified cross-validation
+- Stratified means each fold preserves the class ratio
+  (50/50 left/right) so no fold is accidentally imbalanced
+- 5 folds gives 5 accuracy scores — we report mean ± std
+- Raw fold scores also stored for significance testing later
+- Metric: balanced accuracy (average of per-class accuracy)
+
+Cross-dataset evaluation:
+- Method: zero-shot transfer — train on full source dataset,
+  test on full target dataset, no overlap, no fine-tuning
+- Run in both directions: Phys→BCI and BCI→Phys
+- Both directions needed to control for dataset size effects
+  (109 subjects vs 9 subjects)
+- Metric: balanced accuracy
+
+Generalisation gap:
+- Raw gap = within accuracy − cross accuracy
+- Normalised gap = raw gap / within accuracy
+- Normalised gap answers: what % of performance is lost
+  under distribution shift?
+- Small gap = robust feature set
+- Large gap = feature set collapses under shift
+
+Models:
+- Logistic Regression: linear baseline, StandardScaler applied
+- SVM with RBF kernel: non-linear, StandardScaler applied
+- Random Forest (100 trees): ensemble, no scaling needed
+- All models use random seed 42 for reproducibility
+- StandardScaler fitted only on training data (inside Pipeline)
+  to prevent data leakage
+
+==================================================
+EXPERIMENTAL CONSTRAINTS
+==================================================
+
+1. Same channels (22)
+2. Same labels (binary)
+3. Same preprocessing
+4. No data leakage
+5. Cross-dataset evaluation:
+   - train on A → test on B
+
+==================================================
+TECHNICAL & MATHEMATICAL DESIGN DECISIONS
+==================================================
+
+--- PREPROCESSING ---
+
+Channel selection (22 channels):
+  The BCI2a 22-channel montage was chosen as the common channel set
+  because it is a subset of PhysioNet's 64-channel set. All 22 BCI2a
+  channels exist in PhysioNet, so no interpolation or estimation is
+  needed. Channels cover frontal (Fz), fronto-central (FC*),
+  central (C*), centro-parietal (CP*), and parietal (P*, POz) areas —
+  the regions most relevant to motor imagery.
+
+Resampling to 250 Hz:
+  PhysioNet native rate is 160 Hz, BCI2a is 250 Hz. We resample
+  PhysioNet UP to 250 Hz to match BCI2a's native rate. Upsampling
+  is preferred over downsampling to avoid losing any frequency
+  content. 250 Hz satisfies Nyquist for our 40 Hz upper filter
+  limit (Nyquist requires >80 Hz minimum, 250 Hz gives comfortable
+  headroom). MNE uses polyphase filtering with npad='auto'.
+
+Bandpass filter 4–40 Hz:
+  Lower bound 4 Hz: removes slow DC drifts and movement artifacts
+  below the delta band. Upper bound 40 Hz: removes EMG (muscle)
+  artifacts and high-frequency noise above the beta band. Motor
+  imagery signal lives in mu (8–12 Hz) and beta (13–30 Hz) rhythms,
+  both well within this range. This is the standard range used in
+  motor imagery literature (Pfurtscheller & Neuper, 2001).
+
+Epoch window 0.5–2.5 s:
+  Starts 0.5 s after cue onset to skip the visual evoked potential
+  (brain response to seeing the cue). Motor imagery buildup begins
+  ~0.5 s after cue. 2-second window captures the stable motor
+  imagery period. Both datasets use the same cue-based paradigm
+  so this window applies identically to both.
+  Result: 501 timepoints (MNE inclusive endpoint at 250 Hz).
+
+No baseline correction:
+  Baseline correction subtracts the pre-stimulus mean from each
+  epoch. We set baseline=None because our bandpass filter already
+  removes slow drifts, making the signal mean ≈ 0. Applying baseline
+  correction on top of bandpass filtering would be redundant and
+  could introduce distortion at epoch edges.
+
+--- FEATURE EXTRACTION ---
+
+Welch nperseg=256:
+  Window length of 256 samples = 1.024 seconds at 250 Hz.
+  Frequency resolution = 250/256 ≈ 0.98 Hz per bin.
+  This gives good frequency resolution (can distinguish close bands)
+  while providing enough averaging to reduce spectral variance.
+  Our epoch is 501 samples, so 256-sample windows fit twice with
+  50% overlap (scipy default), giving 2 averaged windows.
+  Smaller windows (128) would give coarser frequency resolution.
+  Larger windows (512) would exceed epoch length.
+
+Band power epsilon 1e-10:
+  np.log(bp + 1e-10) — the epsilon prevents log(0) which would
+  give -infinity. Value 1e-10 is chosen to be negligibly small
+  compared to real band power values (typically 1e-6 to 1e-4)
+  so it only activates for genuinely zero-power bins and does not
+  distort real values.
+
+FFT n_bins=36:
+  Covers 4–40 Hz at approximately 1 Hz resolution (36 Hz range /
+  36 bins = 1 Hz per bin). This matches the frequency resolution
+  of the band power features and provides consistent dimensionality
+  across both datasets regardless of their original sampling rates
+  or epoch lengths.
+
+FFT linear interpolation:
+  scipy interp1d with default linear method. Linear interpolation
+  is chosen over cubic spline because FFT magnitude spectra are
+  not necessarily smooth — sharp peaks at specific frequencies
+  should be preserved, not smoothed over. Linear interpolation
+  preserves the general shape without artificially smoothing peaks.
+
+--- MODEL DESIGN ---
+
+SVM RBF kernel:
+  RBF (Radial Basis Function) kernel allows SVM to learn non-linear
+  decision boundaries. Motor imagery features are not expected to
+  be linearly separable in the feature space. Default parameters:
+  C=1.0 (regularisation), gamma='scale' (1 / n_features × var(X)).
+  These defaults are reasonable starting points for this dataset
+  size and dimensionality.
+
+Random Forest n_estimators=100:
+  100 trees is the standard default and well-established to give
+  stable results for datasets of this size. Diminishing returns
+  beyond ~100 trees for datasets under 10,000 samples. Each tree
+  uses default max_depth=None (fully grown) and max_features='sqrt'.
+
+LogReg max_iter=5000:
+  Default of 100 iterations is insufficient for high-dimensional
+  feature sets (especially FFT with 792 features). 5000 ensures
+  the solver fully converges for all three feature sets. Uses
+  lbfgs solver (MNE default for multiclass but appropriate for
+  binary too).
+
+StratifiedKFold shuffle=True:
+  shuffle=True randomly reorders trials before splitting into folds.
+  This is appropriate because trials within the dataset are ordered
+  by subject — without shuffling, each fold would contain different
+  subjects entirely, making within-fold variance very high.
+  Shuffling ensures each fold has a representative mix of subjects.
+  random_state=42 makes the shuffle reproducible.
+
+Gap normalisation formula:
+  Normalised gap = (within - cross) / within
+  This expresses degradation as a fraction of the within-dataset
+  baseline. A feature set with 70% within and 60% cross has
+  normalised gap = 0.143 (14.3% degradation).
+  A feature set with 55% within and 50% cross has normalised gap
+  = 0.091 (9.1% degradation) — less degradation despite lower
+  absolute accuracy. Normalisation makes feature sets comparable
+  regardless of their absolute accuracy levels.
+
+==================================================
+ETHICS & REPRODUCIBILITY NOTES
+==================================================
+
+- Both datasets are publicly available and widely used in academic research.
+- No personally identifiable information is present in either dataset.
+- All subjects in both datasets provided informed consent per original studies.
+- Data accessed programmatically via MOABB — no manual modification of raw files.
+- Preprocessing pipeline applied identically to both datasets to avoid confounds.
+- Random seed fixed at 42 across all experiments for full reproducibility.
+- No data augmentation, synthetic samples, or test set peeking at any stage.
+- Cross-dataset evaluation is strictly zero-shot: no fine-tuning or adaptation.
