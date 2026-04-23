@@ -106,7 +106,7 @@ From the saved experiment results:
 | Feature Set | Mean Normalised Gap |
 |---|---:|
 | FFT | 0.065 |
-| Band Power | 0.069 |
+| Band Power | 0.070 |
 | Time Domain | 0.071 |
 
 FFT produced the smallest average normalised generalisation gap, though the differences between feature sets were modest.
