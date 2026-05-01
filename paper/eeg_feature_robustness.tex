@@ -1,0 +1,250 @@
+\documentclass[10pt,twocolumn]{article}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.72in,top=0.85in,bottom=0.9in,columnsep=0.22in]{geometry}
+\usepackage{mathptmx}           % Times Roman body + math
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{microtype}
+\usepackage{amsmath}
+\usepackage[colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black]{hyperref}
+\usepackage{titlesec}
+\usepackage[font=small,labelfont=bf,labelsep=period,skip=4pt]{caption}
+
+\graphicspath{{../results/figures/}}
+
+%% ── Paragraph style ─────────────────────────────────────────────────────────
+\setlength{\parindent}{1em}
+\setlength{\parskip}{0pt}
+
+%% ── Section headings (IEEE style) ──────────────────────────────────────────
+\titleformat{\section}
+  {\normalfont\normalsize\bfseries\centering}
+  {\Roman{section}.}{0.5em}{\MakeUppercase}
+\titleformat{\subsection}
+  {\normalfont\normalsize\itshape}
+  {\Alph{subsection}.}{0.5em}{}
+\titlespacing*{\section}{0pt}{10pt plus 2pt minus 1pt}{4pt plus 1pt}
+\titlespacing*{\subsection}{0pt}{7pt plus 1pt}{3pt plus 1pt}
+
+%% ── Suppress default date ───────────────────────────────────────────────────
+\date{}
+
+\begin{document}
+
+%% ── Title block (spans both columns) ───────────────────────────────────────
+\twocolumn[{%
+  \begin{center}
+    {\large\bfseries
+      Classical EEG Feature Robustness Under Subject-Aware Cross-Dataset Evaluation
+    \par}
+    \vskip 0.55em
+    {\normalsize Barış Talar \quad \texttt{baristalar21@gmail.com}\par}
+  \end{center}
+  \vskip 0.5em
+  \noindent\rule{\linewidth}{0.5pt}
+  \vskip 0.45em
+  {\small\noindent\textbf{Abstract}\textemdash
+    Cross-dataset robustness remains a major barrier for motor-imagery EEG
+    brain-computer interfaces. This study compares classical feature
+    representations under zero-shot transfer between PhysioNet EEG Motor Imagery
+    and BCI Competition IV Dataset 2a. The revised analysis corrects key protocol
+    weaknesses in the initial benchmark: time-domain features are strengthened,
+    subject identifiers are preserved, within-dataset estimates use subject-grouped
+    cross-validation, feature dimensions are controlled by PCA, and cross-dataset
+    uncertainty is bootstrapped over target subjects. Under this stricter protocol,
+    no classical representation provides reliable transfer. PCA-matched
+    cross-dataset balanced accuracy averaged across models was 0.681, 0.645, and
+    0.604 for Time Domain, Band Power, and FFT in the PhysioNet-to-BCI2a direction,
+    but only 0.559, 0.545, and 0.557 in the reverse direction. Pairwise
+    target-subject tests show small effects: Time Domain exceeds Band Power by
+    0.014 ($p=0.0006$), while Time Domain versus FFT is not significant
+    ($p=0.179$). The previous FFT-over-Band-Power-over-Time-Domain claim is not
+    supported.
+  \par}
+  \vskip 0.45em
+  \noindent\rule{\linewidth}{0.4pt}
+  \vskip 1.1em
+}]
+
+\section{Introduction}
+Motor-imagery EEG classification is often evaluated within a single dataset,
+where subjects, acquisition hardware, and protocol details are partly shared
+between train and test data. Such evaluations can overstate deployment
+readiness. A useful BCI model must tolerate changes in subjects, electrodes,
+amplifiers, and task execution.
+
+The initial version of this benchmark asked whether frequency-domain features
+were more robust than time-domain statistics. That framing was too strong:
+pooled trial-wise validation mixed subjects across folds, the time-domain
+baseline used only mean and variance after bandpass filtering, feature
+dimensions were imbalanced, and the headline ranking relied on very small
+normalised-gap differences. This revision treats the work as a controlled
+negative benchmark: it tests whether any classical representation remains
+reliable under subject-aware cross-dataset evaluation.
+
+\section{Methods}
+Two MOABB datasets were used. PhysioNet EEG Motor Imagery contributes 109
+subjects and 4,918 retained left/right imagery trials after preprocessing.
+BCI Competition IV Dataset 2a contributes 9 subjects and 2,592 retained
+left/right trials. Recordings were reduced to the 22 BCI2a channels, resampled
+to 250 Hz, filtered from 4--40 Hz, common-average referenced, and epoched from
+0.5--2.5 s after cue onset. Trial-level subject, session, run, event, and label
+metadata are written to CSV files.
+
+Three representations were compared. Time Domain contains 154 descriptors:
+mean, standard deviation, RMS, line length, zero-crossing rate, Hjorth mobility,
+and Hjorth complexity for each channel. Band Power contains log Welch power in
+theta, mu/alpha, beta, and low-gamma bands for each channel. FFT contains log
+magnitude spectra from 4--40 Hz interpolated to 36 bins per channel. The
+primary comparison uses PCA inside the model pipeline to match all feature
+sets to 88 dimensions.
+
+Models were Logistic Regression, linear SVM, and Random Forest. The primary
+within-dataset protocol uses stratified subject-grouped folds. Trial-wise
+stratified CV is retained only as a diagnostic legacy baseline. Cross-dataset
+evaluation trains on all source subjects and tests zero-shot on all target
+subjects in both directions. Cross-dataset confidence intervals are obtained by
+bootstrapping target subjects. Feature comparisons use paired sign-flip
+permutation tests over target-subject balanced accuracies.
+
+\section{Results}
+Table~\ref{tab:within} reports PCA-matched subject-grouped within-dataset
+balanced accuracy. The strengthened time-domain representation is no longer
+degenerate and is strongest within both datasets.
+
+\begin{table}[t]
+\centering
+\caption{Subject-grouped within-dataset balanced accuracy.}
+\label{tab:within}
+\small
+\begin{tabular}{@{}llcc@{}}
+\toprule
+Feature & Model & PhysioNet & BCI2a \\
+\midrule
+Time & LogReg & 0.613 & 0.676 \\
+Time & SVM    & 0.616 & 0.676 \\
+Time & RF     & 0.579 & 0.645 \\
+\midrule
+Band & LogReg & 0.603 & 0.637 \\
+Band & SVM    & 0.603 & 0.634 \\
+Band & RF     & 0.563 & 0.588 \\
+\midrule
+FFT  & LogReg & 0.569 & 0.592 \\
+FFT  & SVM    & 0.570 & 0.592 \\
+FFT  & RF     & 0.524 & 0.559 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:cross} reports zero-shot cross-dataset balanced accuracy with
+target-subject bootstrap intervals. Transfer is asymmetric: training on the
+larger PhysioNet source and testing on BCI2a is easier than training on 9
+BCI2a subjects and testing on 109 PhysioNet subjects.
+
+\begin{table}[t]
+\centering
+\caption{Cross-dataset balanced accuracy with 95\% target-subject bootstrap
+  intervals.}
+\label{tab:cross}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llcc@{}}
+\toprule
+Feature & Model & Phys $\to$ BCI & BCI $\to$ Phys \\
+\midrule
+Time & LogReg & 0.699 {[}0.639, 0.774{]} & 0.579 {[}0.559, 0.599{]} \\
+Time & SVM    & 0.700 {[}0.641, 0.774{]} & 0.577 {[}0.557, 0.598{]} \\
+Time & RF     & 0.644 {[}0.575, 0.722{]} & 0.520 {[}0.506, 0.534{]} \\
+\midrule
+Band & LogReg & 0.659 {[}0.580, 0.750{]} & 0.558 {[}0.541, 0.576{]} \\
+Band & SVM    & 0.654 {[}0.573, 0.748{]} & 0.554 {[}0.537, 0.571{]} \\
+Band & RF     & 0.623 {[}0.558, 0.699{]} & 0.525 {[}0.512, 0.537{]} \\
+\midrule
+FFT  & LogReg & 0.626 {[}0.573, 0.678{]} & 0.573 {[}0.556, 0.590{]} \\
+FFT  & SVM    & 0.623 {[}0.570, 0.676{]} & 0.572 {[}0.555, 0.589{]} \\
+FFT  & RF     & 0.563 {[}0.525, 0.608{]} & 0.526 {[}0.512, 0.540{]} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The target-subject paired permutation tests give: Time Domain minus Band Power
+= 0.014 ($p=0.0006$), Time Domain minus FFT = 0.0066 ($p=0.179$), and Band
+Power minus FFT = -0.0075 ($p=0.146$). These are small effects, not a strong
+feature hierarchy.
+
+\section{Discussion}
+The revised benchmark changes the interpretation. The old near-chance
+PhysioNet result was partly caused by a weak time-domain baseline and pooled
+analysis choices. With common-average referencing and richer time-domain
+descriptors, PhysioNet subject-grouped accuracy rises to about 0.61 for linear
+models, and many individual subjects exceed 0.70 in within-subject evaluation.
+
+The main conclusion remains conservative. Classical features can recover
+motor-imagery signal in subject-specific or subject-aware settings, but they do
+not provide robust zero-shot transfer across datasets. The normalised
+generalisation gap is also fragile: in the PhysioNet-to-BCI2a direction, cross
+accuracy can exceed the source grouped baseline because the target dataset is
+smaller and has stronger responders. Direct cross-dataset accuracy,
+target-subject intervals, and paired tests are therefore more informative than
+a single averaged gap.
+
+\section{Limitations}
+Only two motor-imagery datasets are studied. The PCA-matched comparison
+controls dimensionality but cannot make representations semantically
+equivalent. The model set is deliberately classical and does not yet include
+CSP, FBCSP, Riemannian classifiers, deep learning, or domain adaptation. These
+baselines should be added before making broad claims about EEG transfer
+learning.
+
+\section{Conclusion}
+After subject-aware evaluation, fairer time-domain features, dimensionality
+matching, and target-subject uncertainty estimates, the original FFT robustness
+claim is not supported. No tested classical feature representation provides
+reliable zero-shot cross-dataset motor-imagery EEG transfer. Future work should
+add CSP/FBCSP, Riemannian geometry, and domain-adaptation baselines before
+positioning this as a mature BCI transfer benchmark.
+
+\begin{thebibliography}{9}
+
+\bibitem{brunner2008}
+C.~Brunner, R.~Leeb, G.~Mueller-Putz, A.~Schloegl, and G.~Pfurtscheller,
+``BCI Competition 2008 -- Graz data set A,'' 2008.
+
+\bibitem{goldberger2000}
+A.~L. Goldberger et al.,
+``PhysioBank, PhysioToolkit, and PhysioNet,''
+\emph{Circulation}, vol.~101, no.~23, pp.~e215--e220, 2000.
+
+\bibitem{jayaram2018}
+V.~Jayaram and A.~Barachant,
+``MOABB: Trustworthy algorithm benchmarking for BCIs,''
+\emph{Journal of Neural Engineering}, vol.~15, no.~6, 2018.
+
+\bibitem{jayaram2016}
+V.~Jayaram et al.,
+``Transfer learning in brain-computer interfaces,''
+\emph{IEEE Computational Intelligence Magazine},
+vol.~11, no.~1, pp.~20--31, 2016.
+
+\bibitem{lotte2018}
+F.~Lotte et al.,
+``A review of classification algorithms for EEG-based brain-computer
+interfaces: A 10-year update,''
+\emph{Journal of Neural Engineering}, vol.~15, no.~3, 2018.
+
+\bibitem{pfurtscheller2001}
+G.~Pfurtscheller and C.~Neuper,
+``Motor imagery and direct brain-computer communication,''
+\emph{Proceedings of the IEEE},
+vol.~89, no.~7, pp.~1123--1134, 2001.
+
+\bibitem{schalk2004}
+G.~Schalk et al.,
+``BCI2000: A general-purpose brain-computer interface system,''
+\emph{IEEE Transactions on Biomedical Engineering},
+vol.~51, no.~6, pp.~1034--1043, 2004.
+
+\end{thebibliography}
+
+\end{document}

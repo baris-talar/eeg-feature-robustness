@@ -1,0 +1,10 @@
+# Exact runtime environment for the publication-grade reproduction target.
+# Tested target interpreter: Python 3.11.x
+mne==1.8.0
+moabb==1.1.0
+numpy==1.26.4
+scipy==1.14.1
+scikit-learn==1.5.2
+pandas==1.5.3
+matplotlib==3.9.2
+seaborn==0.12.2

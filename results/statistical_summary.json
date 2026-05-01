@@ -1,0 +1,34 @@
+{
+  "test": "paired sign-flip permutation on target-subject balanced accuracies",
+  "n_permutations": 5000,
+  "feature_pairwise_tests": [
+    {
+      "feature_a": "TimeDomain",
+      "feature_b": "BandPower",
+      "mean_a": 0.5668,
+      "mean_b": 0.5528,
+      "mean_difference_a_minus_b": 0.014,
+      "paired_permutation_p": 0.0005998800239952009,
+      "n_paired_subject_model_direction_scores": 354
+    },
+    {
+      "feature_a": "TimeDomain",
+      "feature_b": "FFT",
+      "mean_a": 0.5668,
+      "mean_b": 0.5602,
+      "mean_difference_a_minus_b": 0.0066,
+      "paired_permutation_p": 0.17896420715856828,
+      "n_paired_subject_model_direction_scores": 354
+    },
+    {
+      "feature_a": "BandPower",
+      "feature_b": "FFT",
+      "mean_a": 0.5528,
+      "mean_b": 0.5602,
+      "mean_difference_a_minus_b": -0.0075,
+      "paired_permutation_p": 0.14557088582283542,
+      "n_paired_subject_model_direction_scores": 354
+    }
+  ],
+  "interpretation_guardrail": "Feature rankings should be treated as descriptive unless pairwise intervals and permutation tests support a stable difference."
+}

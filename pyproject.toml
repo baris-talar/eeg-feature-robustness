@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eeg-feature-robustness"
+version = "0.1.0"
+description = "Reproducible experiments on EEG feature robustness under cross-dataset distribution shift."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+license = {file = "LICENSE"}
+dependencies = [
+  "mne>=1.8,<2",
+  "moabb>=1.1,<2",
+  "numpy>=1.26,<2",
+  "scipy>=1.14,<2",
+  "scikit-learn>=1.5,<2",
+  "pandas>=1.5,<2",
+  "matplotlib>=3.9,<4",
+  "seaborn>=0.12,<0.13",
+]
+
+[project.scripts]
+eegfr-preprocess = "eeg_feature_robustness.preprocessing:main"
+eegfr-features = "eeg_feature_robustness.features:main"
+eegfr-models = "eeg_feature_robustness.models:main"
+eegfr-figures = "eeg_feature_robustness.figures:main"
+eegfr-pipeline = "eeg_feature_robustness.pipeline:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
