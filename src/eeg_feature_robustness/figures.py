@@ -472,12 +472,16 @@ def write_cross_dataset_table(results, output_path: Path):
     """Write the cross-dataset summary table."""
     output_path = _ensure_parent(output_path)
     protocol_results = resolve_protocol_results(results)
+    p2b_acc_label = "P\u2192B acc"
+    p2b_gap_label = "P\u2192B gap"
+    b2p_acc_label = "B\u2192P acc"
+    b2p_gap_label = "B\u2192P gap"
     print("\n" + "=" * 90)
     print("TABLE 2 - Cross-Dataset Accuracy and Normalised Generalisation Gap")
     print("=" * 90)
     print(
-        f"{'Feature':<12} {'Model':<14} {'P\u2192B acc':>9} {'P\u2192B gap':>9} "
-        f"{'B\u2192P acc':>9} {'B\u2192P gap':>9}"
+        f"{'Feature':<12} {'Model':<14} {p2b_acc_label:>9} {p2b_gap_label:>9} "
+        f"{b2p_acc_label:>9} {b2p_gap_label:>9}"
     )
     print("-" * 90)
 
